@@ -1,0 +1,23 @@
+name = "my-tube"
+account_id = "YOUR_ACCOUNT_ID"
+compatibility_date = "2025-01-01"
+
+[build]
+command = "npm run build"
+
+[site]
+bucket = "./dist"
+
+[[kv_namespaces]]
+binding = "SESSION"
+id = "YOUR_SESSION_KV_ID"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "YOUR_D1_DATABASE_NAME"
+
+[vars]
+ASTRO_DB_REMOTE_URL = "https://YOUR_D1_PROJECT.d1.database.dev"
+ASTRO_DB_APP_TOKEN = "YOUR_LIBSQL_APP_TOKEN"
+PUBLIC_YOUTUBE_CLIENT_ID = "664367767470-omhd95q0gteo48n4pogsmrjhn24pq31b.apps.googleusercontent.com"
+PUBLIC_YOUTUBE_REDIRECT_URI = "http://localhost:4173/auth/youtube/callback"

@@ -1,0 +1,25 @@
+{
+  "name": "my-tube",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "cross-env ASTRO_DATABASE_FILE=./db/dev.db astro dev",
+    "build": "cross-env ASTRO_DATABASE_FILE=./db/dev.db astro build",
+    "preview": "cross-env ASTRO_DATABASE_FILE=./db/dev.db astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "^12.6.12",
+    "@astrojs/db": "^0.18.3",
+    "@tailwindcss/vite": "^4.1.17",
+    "@vitejs/plugin-basic-ssl": "^2.1.0",
+    "alpinejs": "^3.15.2",
+    "astro": "^5.16.4",
+    "astro-icon": "^1.1.5",
+    "htmx.org": "^2.0.8",
+    "tailwindcss": "^4.1.17"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0"
+  }
+}
