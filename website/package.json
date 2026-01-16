@@ -4,7 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "cross-env ASTRO_DATABASE_FILE=./db/dev.db astro dev",
-    "build": "astro build",
+    "build": "astro build --remote",
     "build:local": "cross-env ASTRO_DATABASE_FILE=./db/dev.db astro build",
     "preview": "cross-env ASTRO_DATABASE_FILE=./db/dev.db astro preview",
     "astro": "astro"
