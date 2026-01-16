@@ -1,7 +1,11 @@
 name = "my-tube"
 account_id = "182788b23836a15ba32a69d616ba1db1"
 compatibility_date = "2025-01-01"
-pages_build_output_dir = ".output"
+pages_build_output_dir = "dist"
+
+[[kv_namespaces]]
+binding = "SESSION"
+id = "ff020848600b4885998102246695f1b9"
 
 [[kv_namespaces]]
 binding = "mytube"
