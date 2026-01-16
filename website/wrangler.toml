@@ -1,5 +1,5 @@
 name = "my-tube"
-account_id = "YOUR_ACCOUNT_ID"
+account_id = "182788b23836a15ba32a69d616ba1db1"
 compatibility_date = "2025-01-01"
 
 [build]
@@ -9,12 +9,13 @@ command = "npm run build"
 bucket = "./dist"
 
 [[kv_namespaces]]
-binding = "SESSION"
-id = "YOUR_SESSION_KV_ID"
+binding = "mytube"
+id = "ff020848600b4885998102246695f1b9"
 
 [[d1_databases]]
-binding = "DB"
-database_name = "YOUR_D1_DATABASE_NAME"
+binding = "DB" # i.e. available in your Worker on env.DB
+database_name = "mytube"
+database_id = "fe0021df-707c-413a-b6bd-8df1e06bdfb2"
 
 [vars]
 ASTRO_DB_REMOTE_URL = "https://YOUR_D1_PROJECT.d1.database.dev"
