@@ -47,11 +47,16 @@ const parseVideos = (body: any) => {
 
 const buildCorsHeaders = (request: Request) => {
   const origin = request.headers.get("origin");
+  // Permite requisições de extensões do navegador (que não têm origin)
+  // e também de qualquer origem web
+  const allowOrigin = origin || "*";
   return {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, X-Watch-Later-Key",
+    "Access-Control-Allow-Origin": allowOrigin,
+    "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
+    "Access-Control-Allow-Headers": "Content-Type, X-Watch-Later-Key, Authorization",
+    "Access-Control-Allow-Credentials": "false",
     "Access-Control-Max-Age": "86400",
+    "Vary": "Origin",
   };
 };
 
