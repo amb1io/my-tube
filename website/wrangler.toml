@@ -1,5 +1,6 @@
 name = "my-tube"
 compatibility_date = "2025-01-01"
+compatibility_flags = ["nodejs_compat"]
 pages_build_output_dir = "dist"
 
 [[kv_namespaces]]
@@ -20,3 +21,4 @@ ASTRO_DB_REMOTE_URL = "https://YOUR_D1_PROJECT.d1.database.dev"
 ASTRO_DB_APP_TOKEN = "YOUR_LIBSQL_APP_TOKEN"
 PUBLIC_YOUTUBE_CLIENT_ID = "664367767470-omhd95q0gteo48n4pogsmrjhn24pq31b.apps.googleusercontent.com"
 PUBLIC_YOUTUBE_REDIRECT_URI = "http://localhost:4173/auth/youtube/callback"
+PUBLIC_WATCH_LATER_UPLOAD_KEY = "change-me"

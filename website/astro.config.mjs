@@ -9,6 +9,7 @@ import db from "@astrojs/db";
 
 // https://astro.build/config
 export default defineConfig({
+  output: "server",
   adapter: cloudflare(),
   integrations: [icons(), db({ mode: "web" })],
   vite: {
