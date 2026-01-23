@@ -41,6 +41,27 @@ const handleAuthSuccess = () => {
 	if (statusEl) {
 		statusEl.textContent = 'Conta sincronizada. Redirecionando...';
 	}
+	// Salvar flag no localStorage indicando que o login foi realizado
+	try {
+		localStorage.setItem('youtube_auth_synced', 'true');
+		localStorage.setItem('youtube_auth_timestamp', Date.now().toString());
+	} catch (e) {
+		console.error('Error saving to localStorage:', e);
+	}
+	
+	// Atualizar estado synced se o Alpine estiver disponível
+	const mainElement = document.querySelector('main[x-data]');
+	if (mainElement && (window as any).Alpine) {
+		try {
+			const alpineData = (window as any).Alpine.$data(mainElement);
+			if (alpineData) {
+				alpineData.synced = true;
+			}
+		} catch (e) {
+			console.error('Error updating Alpine state:', e);
+		}
+	}
+	
 	window.location.href = '/?synced=1';
 };
 

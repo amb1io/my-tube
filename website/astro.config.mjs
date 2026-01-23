@@ -9,7 +9,7 @@ import db from "@astrojs/db";
 
 // https://astro.build/config
 export default defineConfig({
-  output: "server",
+  output: "server", // Permite páginas estáticas e dinâmicas
   adapter: cloudflare({
     mode: "advanced", // Use advanced mode for Cloudflare Pages
   }),

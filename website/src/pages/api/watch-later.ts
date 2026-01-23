@@ -202,40 +202,71 @@ export const GET: APIRoute = async ({ locals }) => {
       const relative = formatRelativeDate(
         details.snippet?.publishedAt ?? snippet.publishedAt,
       );
+      const videoId = snippet.resourceId?.videoId;
+      const thumbnail = escapeHtml(
+        snippet.thumbnails?.medium?.url ??
+        snippet.thumbnails?.high?.url ??
+        snippet.thumbnails?.default?.url ??
+        "",
+      );
+      const title = escapeHtml(snippet.title ?? "");
+      const channel = escapeHtml(snippet.channelTitle ?? "");
+
       return `
-				<article class="flex flex-col overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/60 shadow-[0_30px_60px_rgba(0,0,0,0.5)] transition hover:border-white/40">
-					<div class="relative h-48 overflow-hidden">
-						<img class="h-full w-full object-cover" src="${escapeHtml(snippet.thumbnails?.high?.url ?? snippet.thumbnails?.default?.url ?? "")}" alt="${escapeHtml(snippet.title)}" />
-						<span class="absolute right-3 top-3 rounded-xl bg-black/70 px-2 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white">
-							${duration}
-						</span>
-					</div>
-					<div class="flex flex-1 flex-col justify-between p-5">
-						<div>
-							<h3 class="text-lg font-semibold text-white">${escapeHtml(snippet.title)}</h3>
-							<p class="mt-2 text-sm text-slate-400">${escapeHtml(snippet.channelTitle)}</p>
-						</div>
-						<div class="mt-4 flex items-center justify-between text-xs text-slate-500">
-							<span>${views}</span>
-							<span>${relative}</span>
-						</div>
-					</div>
-				</article>
-			`;
+        <div class="flex flex-col cursor-pointer">
+          <div class="relative mb-3 w-full">
+            <a href="https://www.youtube.com/watch?v=${videoId}" target="_blank" rel="noopener noreferrer">
+              <img
+                class="w-full rounded-lg"
+                src="${thumbnail}"
+                alt="${title}"
+                loading="lazy"
+              />
+              <div class="absolute bottom-1 right-1 rounded bg-black/80 px-1.5 py-0.5 text-xs font-medium">
+                ${duration}
+              </div>
+            </a>
+          </div>
+          <div class="flex gap-3">
+            <div class="flex-1 min-w-0">
+              <h3 class="mb-1 line-clamp-2 text-sm font-medium text-white">
+                <a href="https://www.youtube.com/watch?v=${videoId}" target="_blank" rel="noopener noreferrer" class="hover:underline">
+                  ${title}
+                </a>
+              </h3>
+              <div class="flex flex-col text-xs text-[#AAAAAA]">
+                <a href="#" class="hover:text-white">${channel}</a>
+                <div class="flex items-center gap-1">
+                  <span>${views}</span>
+                  <span>•</span>
+                  <span>${relative}</span>
+                </div>
+              </div>
+            </div>
+            <button
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full hover:bg-[#272727]"
+              aria-label="Mais opções"
+            >
+              <svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      `;
     })
     .join("");
 
   if (!cards) {
     return new Response(
-      '<div class="text-white">Sem vídeos no Watch Later.</div>',
+      '<div class="col-span-full text-center text-[#AAAAAA]">Sem vídeos no Watch Later.</div>',
       {
         headers: { "Content-Type": "text/html; charset=utf-8" },
       },
     );
   }
 
-  const grid = `<div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">${cards}</div>`;
-  return new Response(grid, {
+  return new Response(cards, {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 };

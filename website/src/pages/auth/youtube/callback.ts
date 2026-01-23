@@ -13,7 +13,8 @@ const CREATE_TABLE_SQL = `
 		refresh_token TEXT,
 		scope TEXT,
 		expires_at TEXT,
-		created_at TEXT NOT NULL
+		created_at TEXT NOT NULL,
+		session_id TEXT
 	);
 `;
 
@@ -30,8 +31,8 @@ const CREATE_USUARIO_TABLE_SQL = `
 `;
 
 const UPSERT_TOKEN_SQL = `
-	INSERT OR REPLACE INTO youtube_tokens (id, access_token, refresh_token, scope, expires_at, created_at)
-	VALUES (?, ?, ?, ?, ?, ?);
+	INSERT OR REPLACE INTO youtube_tokens (id, access_token, refresh_token, scope, expires_at, created_at, session_id)
+	VALUES (?, ?, ?, ?, ?, ?, ?);
 `;
 
 const UPSERT_USUARIO_SQL = `
@@ -52,7 +53,7 @@ const expireDateFromPayload = (seconds?: number) =>
 
 const getDatabase = (locals: any) => locals?.runtime?.env?.DB;
 
-export const GET: APIRoute = async ({ url, locals }) => {
+export const GET: APIRoute = async ({ url, locals, cookies }) => {
 	const error = url.searchParams.get('error');
 	if (error) {
 		return new Response(`Google OAuth error: ${error}`, { status: 400 });
@@ -61,6 +62,16 @@ export const GET: APIRoute = async ({ url, locals }) => {
 	const code = url.searchParams.get('code');
 	if (!code) {
 		return new Response('Missing authorization code.', { status: 400 });
+	}
+
+	// Obter sessionId do state (passado pelo OAuth) ou do localStorage via callback
+	const state = url.searchParams.get('state');
+	let sessionId: string | null = null;
+	
+	if (state) {
+		// Extrair sessionId do state (formato: "sessionId=xxx")
+		const stateParams = new URLSearchParams(state);
+		sessionId = stateParams.get('sessionId');
 	}
 
 	const clientId = buildClientId();
@@ -104,7 +115,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 	await db.prepare(CREATE_TABLE_SQL).run();
 	await db.prepare(CREATE_USUARIO_TABLE_SQL).run();
 
-	// Salvar tokens
+	// Salvar tokens com sessionId se disponível
 	await db
 		.prepare(UPSERT_TOKEN_SQL)
 		.bind(
@@ -113,7 +124,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
 			payload.refresh_token ?? null,
 			payload.scope ?? null,
 			expiresAt,
-			new Date().toISOString()
+			new Date().toISOString(),
+			sessionId
 		)
 		.run();
 
@@ -179,6 +191,24 @@ export const GET: APIRoute = async ({ url, locals }) => {
 			.run();
 	}
 
+	// Se não houver sessionId do state, gerar um novo (para login normal do site)
+	// Mas se vier do state, usar o sessionId da extensão
+	if (!sessionId) {
+		const generateSessionId = () => {
+			return 'session_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 15);
+		};
+		sessionId = generateSessionId();
+	}
+	
+	// Criar cookie de sessão usando a API de cookies do Astro (válido por 30 dias)
+	cookies.set('mytube_session', sessionId, {
+		path: '/',
+		maxAge: 30 * 24 * 60 * 60, // 30 dias
+		sameSite: 'lax',
+		secure: true,
+		httpOnly: false, // Permitir acesso via JavaScript se necessário
+	});
+
 	const redirectTarget = new URL('/?synced=1', url.origin);
 	const successPage = `
 		<!DOCTYPE html>
@@ -191,9 +221,28 @@ export const GET: APIRoute = async ({ url, locals }) => {
 			<body>
 				<script>
 					(function() {
+						// Salvar flag no localStorage indicando que a autenticação foi bem-sucedida
+						try {
+							localStorage.setItem('youtube_auth_synced', 'true');
+							localStorage.setItem('youtube_auth_timestamp', Date.now().toString());
+						} catch (e) {
+							console.error('Error saving to localStorage:', e);
+						}
+						
 						const redirectUrl = ${JSON.stringify(redirectTarget.toString())};
 						if (window.opener) {
-							window.opener.postMessage({ type: 'youtube-auth-complete' }, window.location.origin);
+							// Se abriu em popup, enviar mensagem para a janela pai
+							window.opener.postMessage({ 
+								type: 'youtube-auth-complete',
+								synced: true
+							}, window.location.origin);
+							// Também salvar no localStorage da janela pai
+							try {
+								window.opener.localStorage.setItem('youtube_auth_synced', 'true');
+								window.opener.localStorage.setItem('youtube_auth_timestamp', Date.now().toString());
+							} catch (e) {
+								console.error('Error saving to opener localStorage:', e);
+							}
 							window.close();
 						} else {
 							window.location.href = redirectUrl;
@@ -203,7 +252,10 @@ export const GET: APIRoute = async ({ url, locals }) => {
 			</body>
 		</html>
 	`;
+	
 	return new Response(successPage, {
-		headers: { 'Content-Type': 'text/html; charset=utf-8' }
+		headers: { 
+			'Content-Type': 'text/html; charset=utf-8'
+		}
 	});
 };
