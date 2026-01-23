@@ -64,38 +64,38 @@ const UPDATE_SESSION_SQL = `
 const getDatabase = (locals: any) => locals?.runtime?.env?.DB;
 
 const generateUUID = () => {
-	// Usa crypto.randomUUID() se disponível, caso contrário gera manualmente
-	if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-		return crypto.randomUUID();
-	}
-	// Fallback para gerar UUID v4
-	return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-		const r = (Math.random() * 16) | 0;
-		const v = c === 'x' ? r : (r & 0x3) | 0x8;
-		return v.toString(16);
-	});
+  // Usa crypto.randomUUID() se disponível, caso contrário gera manualmente
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback para gerar UUID v4
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 };
 
 const getClientIP = (request: Request, locals: any): string => {
-	// Tenta obter IP de headers comuns do Cloudflare
-	const cfConnectingIP = request.headers.get('cf-connecting-ip');
-	if (cfConnectingIP) return cfConnectingIP;
+  // Tenta obter IP de headers comuns do Cloudflare
+  const cfConnectingIP = request.headers.get("cf-connecting-ip");
+  if (cfConnectingIP) return cfConnectingIP;
 
-	const xForwardedFor = request.headers.get('x-forwarded-for');
-	if (xForwardedFor) {
-		// Pega o primeiro IP da lista
-		return xForwardedFor.split(',')[0].trim();
-	}
+  const xForwardedFor = request.headers.get("x-forwarded-for");
+  if (xForwardedFor) {
+    // Pega o primeiro IP da lista
+    return xForwardedFor.split(",")[0].trim();
+  }
 
-	const xRealIP = request.headers.get('x-real-ip');
-	if (xRealIP) return xRealIP;
+  const xRealIP = request.headers.get("x-real-ip");
+  if (xRealIP) return xRealIP;
 
-	// Tenta obter do runtime do Cloudflare
-	if (locals?.runtime?.cf?.connectingIp) {
-		return locals.runtime.cf.connectingIp;
-	}
+  // Tenta obter do runtime do Cloudflare
+  if (locals?.runtime?.cf?.connectingIp) {
+    return locals.runtime.cf.connectingIp;
+  }
 
-	return 'unknown';
+  return "unknown";
 };
 
 const parseVideos = (body: any) => {
@@ -123,10 +123,11 @@ const buildCorsHeaders = (request: Request) => {
   return {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Methods": "POST, OPTIONS, GET",
-    "Access-Control-Allow-Headers": "Content-Type, X-Watch-Later-Key, X-Session-ID, X-Usuario-Email, Authorization",
+    "Access-Control-Allow-Headers":
+      "Content-Type, X-Watch-Later-Key, X-Session-ID, X-Usuario-Email, Authorization",
     "Access-Control-Allow-Credentials": "false",
     "Access-Control-Max-Age": "86400",
-    "Vary": "Origin",
+    Vary: "Origin",
   };
 };
 
@@ -144,6 +145,8 @@ const respondWithCors = (response: Response | null, request: Request) => {
   });
 };
 
+export const prerender = false;
+
 export const OPTIONS: APIRoute = async ({ request }) => {
   return respondWithCors(null, request);
 };
@@ -152,7 +155,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!import.meta.env.PUBLIC_WATCH_LATER_UPLOAD_KEY) {
     return respondWithCors(
       new Response("Upload key não configurada", { status: 500 }),
-      request
+      request,
     );
   }
 
@@ -160,7 +163,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (headerKey !== import.meta.env.PUBLIC_WATCH_LATER_UPLOAD_KEY) {
     return respondWithCors(
       new Response("Chave inválida", { status: 401 }),
-      request
+      request,
     );
   }
 
@@ -168,7 +171,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!db) {
     return respondWithCors(
       new Response("Binding D1 `DB` indisponível.", { status: 503 }),
-      request
+      request,
     );
   }
 
@@ -177,7 +180,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
   if (!videos.length) {
     return respondWithCors(
       new Response("Nenhum vídeo enviado", { status: 400 }),
-      request
+      request,
     );
   }
 
@@ -196,7 +199,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const clientIP = getClientIP(request, locals);
 
   // Obter email do usuário se disponível (pode vir do header ou do payload)
-  const usuarioEmail = payload?.usuarioEmail || request.headers.get("x-usuario-email") || null;
+  const usuarioEmail =
+    payload?.usuarioEmail || request.headers.get("x-usuario-email") || null;
   const playlistId = payload?.playlistId || "WL"; // "WL" é o ID padrão do Watch Later
 
   // Criar tabelas se não existirem
@@ -219,7 +223,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         playlistId,
         clientIP,
         now, // updated_at
-        sessionId
+        sessionId,
       )
       .run();
   } else {
@@ -232,7 +236,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         playlistId,
         clientIP,
         now, // created_at
-        now  // updated_at
+        now, // updated_at
       )
       .run();
   }
@@ -250,19 +254,22 @@ export const POST: APIRoute = async ({ request, locals }) => {
         video.duration,
         video.position,
         syncedAt,
-        JSON.stringify(video.raw ?? {})
+        JSON.stringify(video.raw ?? {}),
       )
       .run();
   }
 
   return respondWithCors(
-    new Response(JSON.stringify({ 
-      message: "Vídeos sincronizados",
-      sessionId: sessionId 
-    }), { 
-      status: 201,
-      headers: { "Content-Type": "application/json" }
-    }),
-    request
+    new Response(
+      JSON.stringify({
+        message: "Vídeos sincronizados",
+        sessionId: sessionId,
+      }),
+      {
+        status: 201,
+        headers: { "Content-Type": "application/json" },
+      },
+    ),
+    request,
   );
 };
