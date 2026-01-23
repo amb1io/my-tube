@@ -127,7 +127,7 @@ const buildCorsHeaders = (request: Request) => {
       "Content-Type, X-Watch-Later-Key, X-Session-ID, X-Usuario-Email, Authorization",
     "Access-Control-Allow-Credentials": "false",
     "Access-Control-Max-Age": "86400",
-    Vary: "Origin",
+    "Vary": "Origin",
   };
 };
 
@@ -152,124 +152,159 @@ export const OPTIONS: APIRoute = async ({ request }) => {
 };
 
 export const POST: APIRoute = async ({ request, locals }) => {
-  if (!import.meta.env.PUBLIC_WATCH_LATER_UPLOAD_KEY) {
+  try {
+    if (!import.meta.env.PUBLIC_WATCH_LATER_UPLOAD_KEY) {
+      return respondWithCors(
+        new Response(
+          JSON.stringify({ error: "Upload key não configurada" }),
+          {
+            status: 500,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+        request,
+      );
+    }
+
+    const headerKey = request.headers.get("x-watch-later-key");
+    if (headerKey !== import.meta.env.PUBLIC_WATCH_LATER_UPLOAD_KEY) {
+      return respondWithCors(
+        new Response(JSON.stringify({ error: "Chave inválida" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        }),
+        request,
+      );
+    }
+
+    const db = getDatabase(locals);
+    if (!db) {
+      return respondWithCors(
+        new Response(
+          JSON.stringify({ error: "Binding D1 `DB` indisponível." }),
+          {
+            status: 503,
+            headers: { "Content-Type": "application/json" },
+          },
+        ),
+        request,
+      );
+    }
+
+    const payload = await request.json().catch(() => null);
+    const videos = parseVideos(payload);
+    if (!videos.length) {
+      return respondWithCors(
+        new Response(JSON.stringify({ error: "Nenhum vídeo enviado" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        }),
+        request,
+      );
+    }
+
+    const syncedAt =
+      typeof payload?.syncTime === "string"
+        ? payload.syncTime
+        : new Date().toISOString();
+
+    // Obter ou gerar session_id
+    let sessionId = payload?.sessionId || request.headers.get("x-session-id");
+    if (!sessionId || typeof sessionId !== "string") {
+      sessionId = generateUUID();
+    }
+
+    // Obter IP do cliente
+    const clientIP = getClientIP(request, locals);
+
+    // Obter email do usuário se disponível (pode vir do header ou do payload)
+    const usuarioEmail =
+      payload?.usuarioEmail || request.headers.get("x-usuario-email") || null;
+    const playlistId = payload?.playlistId || "WL"; // "WL" é o ID padrão do Watch Later
+
+    // Criar tabelas se não existirem
+    await db.prepare(CREATE_TABLE_SQL).run();
+    await db.prepare(CREATE_USUARIO_SESSION_TABLE_SQL).run();
+
+    // Criar ou atualizar registro de sessão (preservando created_at se já existir)
+    const now = new Date().toISOString();
+    const existingSession = await db
+      .prepare(SELECT_SESSION_SQL)
+      .bind(sessionId)
+      .first();
+
+    if (existingSession) {
+      // Atualizar sessão existente (preserva created_at)
+      await db
+        .prepare(UPDATE_SESSION_SQL)
+        .bind(
+          usuarioEmail,
+          playlistId,
+          clientIP,
+          now, // updated_at
+          sessionId,
+        )
+        .run();
+    } else {
+      // Criar nova sessão
+      await db
+        .prepare(INSERT_SESSION_SQL)
+        .bind(
+          sessionId,
+          usuarioEmail,
+          playlistId,
+          clientIP,
+          now, // created_at
+          now, // updated_at
+        )
+        .run();
+    }
+
+    // Inserir vídeos com session_id
+    const statement = db.prepare(UPSERT_SQL);
+    for (const video of videos) {
+      await statement
+        .bind(
+          video.videoId,
+          sessionId,
+          video.title,
+          video.channel,
+          video.thumbnail,
+          video.duration,
+          video.position,
+          syncedAt,
+          JSON.stringify(video.raw ?? {}),
+        )
+        .run();
+    }
+
     return respondWithCors(
-      new Response("Upload key não configurada", { status: 500 }),
+      new Response(
+        JSON.stringify({
+          message: "Vídeos sincronizados",
+          sessionId: sessionId,
+        }),
+        {
+          status: 201,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+      request,
+    );
+  } catch (error) {
+    console.error("Error in upload endpoint:", error);
+    return respondWithCors(
+      new Response(
+        JSON.stringify({
+          error: "Erro interno do servidor",
+          details: error instanceof Error ? error.message : String(error),
+        }),
+        {
+          status: 500,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
       request,
     );
   }
-
-  const headerKey = request.headers.get("x-watch-later-key");
-  if (headerKey !== import.meta.env.PUBLIC_WATCH_LATER_UPLOAD_KEY) {
-    return respondWithCors(
-      new Response("Chave inválida", { status: 401 }),
-      request,
-    );
-  }
-
-  const db = getDatabase(locals);
-  if (!db) {
-    return respondWithCors(
-      new Response("Binding D1 `DB` indisponível.", { status: 503 }),
-      request,
-    );
-  }
-
-  const payload = await request.json().catch(() => null);
-  const videos = parseVideos(payload);
-  if (!videos.length) {
-    return respondWithCors(
-      new Response("Nenhum vídeo enviado", { status: 400 }),
-      request,
-    );
-  }
-
-  const syncedAt =
-    typeof payload?.syncTime === "string"
-      ? payload.syncTime
-      : new Date().toISOString();
-
-  // Obter ou gerar session_id
-  let sessionId = payload?.sessionId || request.headers.get("x-session-id");
-  if (!sessionId || typeof sessionId !== "string") {
-    sessionId = generateUUID();
-  }
-
-  // Obter IP do cliente
-  const clientIP = getClientIP(request, locals);
-
-  // Obter email do usuário se disponível (pode vir do header ou do payload)
-  const usuarioEmail =
-    payload?.usuarioEmail || request.headers.get("x-usuario-email") || null;
-  const playlistId = payload?.playlistId || "WL"; // "WL" é o ID padrão do Watch Later
-
-  // Criar tabelas se não existirem
-  await db.prepare(CREATE_TABLE_SQL).run();
-  await db.prepare(CREATE_USUARIO_SESSION_TABLE_SQL).run();
-
-  // Criar ou atualizar registro de sessão (preservando created_at se já existir)
-  const now = new Date().toISOString();
-  const existingSession = await db
-    .prepare(SELECT_SESSION_SQL)
-    .bind(sessionId)
-    .first();
-
-  if (existingSession) {
-    // Atualizar sessão existente (preserva created_at)
-    await db
-      .prepare(UPDATE_SESSION_SQL)
-      .bind(
-        usuarioEmail,
-        playlistId,
-        clientIP,
-        now, // updated_at
-        sessionId,
-      )
-      .run();
-  } else {
-    // Criar nova sessão
-    await db
-      .prepare(INSERT_SESSION_SQL)
-      .bind(
-        sessionId,
-        usuarioEmail,
-        playlistId,
-        clientIP,
-        now, // created_at
-        now, // updated_at
-      )
-      .run();
-  }
-
-  // Inserir vídeos com session_id
-  const statement = db.prepare(UPSERT_SQL);
-  for (const video of videos) {
-    await statement
-      .bind(
-        video.videoId,
-        sessionId,
-        video.title,
-        video.channel,
-        video.thumbnail,
-        video.duration,
-        video.position,
-        syncedAt,
-        JSON.stringify(video.raw ?? {}),
-      )
-      .run();
-  }
-
-  return respondWithCors(
-    new Response(
-      JSON.stringify({
-        message: "Vídeos sincronizados",
-        sessionId: sessionId,
-      }),
-      {
-        status: 201,
-        headers: { "Content-Type": "application/json" },
-      },
-    ),
-    request,
-  );
 };
